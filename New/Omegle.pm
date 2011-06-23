@@ -11,7 +11,7 @@ use HTTP::Request::Common;
 use LWP::UserAgent;
 use JSON;
 
-our $VERSION    = '0.1';
+our $VERSION    = '0.2';
 my  @servers    = qw[bajor.omegle.com cardassia.omegle.com promenade.omegle.com];
 my  $lastserver = 'http://'.$servers[rand @servers];
 
@@ -43,8 +43,13 @@ sub request_next_event {
     $om->{async}->add(POST "$$om{server}/events", [ id => $om->{id} ])
 }
 
-sub get_next_event {
-    return shift->{async}->next_response
+sub get_next_events {
+    my $om = shift;
+    my @f = ();
+    while (my $res = $om->{async}->next_response) {
+        push @f, $res
+    }
+    return @f
 }
 
 sub handle_events {
@@ -95,10 +100,11 @@ sub handle_event {
 # request and handle events: put this in your main loop
 sub go {
     my $om = shift;
-	my $res = $om->get_next_event;
-	return unless $res;
-    $om->handle_events($res->content);
-    $om->request_next_event
+	foreach my $res ($om->get_next_events) {
+	    next unless $res;
+        $om->handle_events($res->content);
+        $om->request_next_event
+    }
 }
 
 # send a message

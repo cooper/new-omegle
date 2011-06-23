@@ -21,11 +21,11 @@ Creates an Omegle session object. All options are optional. Callbacks must be CO
 
 ```perl
 my $om = New::Omegle->new(
-    on_chat       => \&chat_cb,
-    on_type       => \&type_cb,
-    on_stoptype   => \&stoptype_cb,
-    on_disconnect => \&disconnect_cb,
-    on_connect    => \&connect_cb,
+    on_chat       => \\&chat_cb,
+    on_type       => \\&type_cb,
+    on_stoptype   => \\&stoptype_cb,
+    on_disconnect => \\&disconnect_cb,
+    on_connect    => \\&connect_cb,
     server        => 'bajor.omegle.com'
 );
 ```

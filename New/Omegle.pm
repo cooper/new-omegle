@@ -11,7 +11,7 @@ use HTTP::Request::Common;
 use LWP::UserAgent;
 use JSON;
 
-our $VERSION    = '0.2';
+our $VERSION    = '0.3';
 my  @servers    = qw[bajor.omegle.com cardassia.omegle.com promenade.omegle.com];
 my  $lastserver = 'http://'.$servers[rand @servers];
 
@@ -103,8 +103,8 @@ sub go {
 	foreach my $res ($om->get_next_events) {
 	    next unless $res;
         $om->handle_events($res->content);
-        $om->request_next_event
     }
+    $om->request_next_event
 }
 
 # send a message

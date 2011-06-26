@@ -11,9 +11,9 @@ use HTTP::Request::Common;
 use LWP::UserAgent;
 use JSON;
 
-our $VERSION    = '0.3';
+our $VERSION    = '0.4';
 my  @servers    = qw[bajor.omegle.com cardassia.omegle.com promenade.omegle.com];
-my  $lastserver = 'http://'.$servers[rand @servers];
+my  $lastserver = 2;
 
 sub new {
     my ($class, %opts) = @_;
@@ -21,7 +21,8 @@ sub new {
     $om->{async}    = new HTTP::Async;
     $om->{ua}       = new LWP::UserAgent;
     $om->{json}     = new JSON;
-    $om->{server}   = $lastserver unless exists $om->{server};
+    $om->{server}   = newserver() unless exists $om->{server};
+    $om->{server}   = "http://$$om{server}";
     $om->{typing}   = 0;
     return $om
 }
@@ -35,6 +36,14 @@ sub start {
     $om->{id} = $id;
     $om->request_next_event;
     return $id
+}
+
+sub newserver {
+    if ($lastserver == $#servers) {
+        $lastserver = 0;
+        return $servers[0]
+    }
+    return $servers[++$lastserver]
 }
 
 sub request_next_event {

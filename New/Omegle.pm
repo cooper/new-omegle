@@ -11,8 +11,8 @@ use HTTP::Request::Common;
 use LWP::UserAgent;
 use JSON;
 
-our $VERSION    = '0.4';
-my  @servers    = qw[bajor.omegle.com cardassia.omegle.com promenade.omegle.com];
+our $VERSION    = '0.5';
+my  @servers    = qw[bajor.omegle.com cardassia.omegle.com promenade.omegle.com quarks.omegle.com];
 my  $lastserver = 2;
 
 sub new {

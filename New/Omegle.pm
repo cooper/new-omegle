@@ -12,7 +12,7 @@ use LWP::UserAgent;
 use JSON;
 
 our $VERSION    = '0.5';
-my  @servers    = qw[bajor.omegle.com cardassia.omegle.com promenade.omegle.com quarks.omegle.com 97.107.132.144];
+my  @servers    = qw[bajor cardassia promenade odo-bucket ferengi quarks];
 my  $lastserver = 2;
 
 sub new {
@@ -43,7 +43,7 @@ sub newserver {
         $lastserver = 0;
         return $servers[0]
     }
-    return $servers[++$lastserver]
+    return $servers[++$lastserver].'.omegle.com';
 }
 
 sub request_next_event {

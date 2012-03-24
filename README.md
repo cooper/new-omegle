@@ -102,6 +102,14 @@ $om->disconnect();
 ### $om->submit_captcha($answer)
 Submits a response to recaptcha. If incorrect, a new captcha will be presented.
 
+```perl
+$om->submit_captcha('some CAPTCHA');
+```
+
 ### $om->update()
 Updates the Omegle server list and online user count. You typically don't need to use
 this directly.
+
+```perl
+$om->update();
+```

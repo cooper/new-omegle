@@ -21,14 +21,13 @@ sub new {
     $om->{async}    = new HTTP::Async;
     $om->{ua}       = new LWP::UserAgent;
     $om->{json}     = new JSON;
-    $om->{server}   = "http://$$om{server}";
     $om->{typing}   = 0;
     return $om
 }
 
 sub start {
     my $om = shift;
-    $om->{server} = newserver() unless $om->{static};
+    $om->{server} = 'http://'.newserver() unless $om->{static};
     my $res = $om->{ua}->post("$$om{server}/start");
     my $id = $res->content || '';
     $id =~ s/"//g;

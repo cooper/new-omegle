@@ -8,11 +8,11 @@ use 5.010;
 
 use HTTP::Async;
 use HTTP::Request::Common;
-use LWP::UserAgent;
+use Furl;
 use JSON;
 
 our ($VERSION, $online, $ua, @servers,
-     $updated, $lastserver, %response) = (2.8, 0, LWP::UserAgent->new);
+     $updated, $lastserver, %response) = (2.8, 0, Furl->new);
 
 # New::Omegle->new(%opts)
 # creates a new New::Omegle session instance.
@@ -258,7 +258,7 @@ sub newserver {
 # _post($url, $args)
 # _get ($url, $args)
 # returns the content of a request. intended for internal use.
-sub _post { $ua->post(shift, @{+shift || []})->content }
-sub _get  { $ua->get(shift, @{+shift || []})->content  }
+sub _post { $ua->post(shift, [], @{+shift || []})->content }
+sub _get  { $ua->get (shift, [], @{+shift || []})->content }
 
 1

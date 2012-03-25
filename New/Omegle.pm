@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# Copyright (c) 2011, Mitchell Cooper
+# Copyright (c) 2011-2012, Mitchell Cooper
 package New::Omegle;
 
 use warnings;
@@ -10,86 +10,145 @@ use HTTP::Async;
 use HTTP::Request::Common;
 use JSON;
 
-our ($VERSION, $async, $JSON, $online,
-     $updated, @servers, $lastserver ) = (1.6, HTTP::Async->new, JSON->new, 0);
-my  ($last_time, %requests, @sessions) = time;
-
-# New::Omegle->update()
-# updates the server list, global stranger count, and other information.
-sub update {
-    $JSON->allow_nonref;
-    $async->add(POST "http://omegle.com/status");
-    my $data    = $JSON->decode($async->wait_for_next_response->content); # assume success
-    @servers    = @{$data->{servers}};
-    $lastserver = int rand @servers;
-    $online     = $data->{count};
-    $updated    = time;
-}
+our ($VERSION, $online, @servers, $updated, $lastserver, %response) = (2.7, 0);
 
 # New::Omegle->new(%opts)
-# creates a New::Omegle session object.
+# creates a new New::Omegle session instance.
 sub new {
     my ($class, %opts) = @_;
-
-    # they haven't called New::Omegle->update(), so I can't choose a server.
-    return unless $online;
-
-    $opts{server} = &newserver;    
-    bless \%opts, $class;
-}
-
-# New::Omegle->go()
-# requests next events
-sub go {
-    return if $last_time + 2 > time;
-    $last_time = time;
-
-    # get next responses
-    while (my ($res, $id) = $async->next_response) {
-        if ($requests{$id}) {
-            $requests{$id}[0]($requests{$id}[1], $res->content);
-            delete $requests{$id};
-        }
-    }
-
-    # ask for more events
-    foreach my $om (@sessions) {
-        $om->async_post('events', [], sub {
-            my ($om, $json) = @_;
-            say $json;
-            $json = $JSON->decode($json) or return;
-            $om->handle_event(@$_) foreach @$json;
-        });
-    }
-
-    # update server list and user count
-    update() if $updated + 120 < time;
-
-    1
+    $opts{async} = HTTP::Async->new;
+    bless my $om = \%opts, $class;
+    return $om;
 }
 
 # $om->start()
-# registers a new session. returns omegle instance (not ID!)
+# establishes a new omegle session and returns its id.
 sub start {
     my $om = shift;
+    $om->{last_time} = time;
+    $om->{async}   ||= HTTP::Async->new;
+    $om->{server}    = &newserver unless $om->{static};
 
-    # start the session, fetch the id
-    $om->async_post('start', [], sub {
-        my ($om, $data) = @_;
-        if ($data =~ m/"(.+)"/) {
-            $om->{id} = $1;
-            say $1;
-            $om->fire('session', $1);
-        }
-        else {
-            $om->fire('error');
-        }
-    });
+    my $startopts = '?rcs=&spid=';
 
-    # add to running sessions
-    push @sessions, $om;
+    # get ID
+    $om->{async}->add(POST "http://$$om{server}/start$startopts");
+    $om->{async}->wait_for_next_response->content =~ m/^"(.+)"$/;
+    $om->{id} = $1;
 
-    return $om;
+    $om->{stopsearching} = time() + 5 if $om->{use_likes};
+    $om->request_next_event;
+    return $om->{id};
+}
+
+# $om->say($msg)
+# send a message
+sub say {
+    my ($om, $msg) = @_;
+    return unless $om->{id};
+    $om->post('send', [ msg => $msg ]);
+}
+
+# om->type()
+# make it appear that you are typing
+sub type {
+    my $om = shift;
+    return unless $om->{id};
+    $om->post('typing');
+}
+
+# $om->stoptype()
+# make it appear that you have stopped typing
+sub stoptype {
+    my $om = shift;
+    return unless $om->{id};
+    $om->post('stoptyping');
+}
+
+# $om->disconnect()
+# disconnect from the stranger
+sub disconnect {
+    my $om = shift;
+    return unless $om->{id};
+    $om->post('disconnect');
+    delete $om->{connected};
+    delete $om->{id};
+}
+
+# $om->submit_captcha($solution)
+# submit recaptcha request
+sub submit_captcha {
+    my ($om, $response) = @_;
+    $om->post('recaptcha', [
+        challenge => delete $om->{challenge},
+        response  => $response
+    ]);
+}
+
+# $om->go()
+# request and handle events: put this in your main loop
+sub go {
+    my $om = shift;
+    return unless $om->{id};
+    return if (($om->{last_time} + 2) > time);
+
+    # stop searching for common likes
+    if (defined $om->{stopsearching} && $om->{stopsearching} >= time) {
+        $om->post('stoplookingforcommonlikes');
+        $om->fire('stopsearching');
+        delete $om->{stopsearching};
+    }
+
+    # look for new events
+	foreach my $res ($om->get_next_events) {
+	    next unless $res->[0];
+        $om->handle_events($res->[0]->content, $res->[1]);
+    }
+
+    # update server list and user count
+    update() if $updated && $updated + 300 < time;
+
+    $om->request_next_event;
+    $om->{last_time} = time;
+}
+
+# $om->request_next_event()
+# asks the omegle server for more events. intended for internal use.
+sub request_next_event {
+    my $om = shift;
+    return unless $om->{id};
+    $om->post('events');
+}
+
+# $om->get_next_events
+# returns an array of array references [response, id]
+# intended for internal use.
+sub get_next_events {
+    my $om = shift;
+    my @f = ();
+    while (my @res = $om->{async}->next_response) { push @f, \@res }
+    return @f;
+}
+
+# $om->handle_json($data, $req_id)
+# parse JSON data and interpret it as individual events.
+# intended for internal use.
+sub handle_events {
+    my ($om, $data, $req_id) = @_;
+
+    # waiting handler
+    if ($response{$req_id}) {
+        return unless (delete $response{$req_id})->($data);
+    }
+
+    # array of events must start with [
+    return unless $data =~ m/^\[/;
+
+    # event JSON
+    my $events = JSON::decode_json($data);
+    foreach my $event (@$events) {
+        $om->handle_event(@$event);
+    }
 }
 
 # $om->fire($callback, @args)
@@ -97,13 +156,13 @@ sub start {
 sub fire {
     my ($om, $callback, @args) = @_;
     if ($om->{"on_$callback"}) {
-        return $om->{"on_$callback"}(@args);
+        return $om->{"on_$callback"}($om, @args);
     }
     return;
 }
 
 # $om->handle_event(@event)
-# handles an event from /events. intended for internal use.
+# handles a single event from parsed JSON. intended for internal use.
 sub handle_event {
     my ($om, @event) = @_;
     given ($event[0]) {
@@ -152,26 +211,61 @@ sub handle_event {
 
         # server requests captcha
         when (['recaptchaRequired', 'recaptchaRejected']) {
-
+            my $data = _get("http://google.com/recaptcha/api/challenge?k=$event[1]&ajax=1");
+            return unless $data =~ m/challenge : '(.+)'/;
+            $om->{challenge} = $1;
+            $om->fire('gotcaptcha', "http://www.google.com/recaptcha/api/image?c=$1");
         }
     }
-    return 1;
+    return 1
 }
 
-# $om->async_post($page, $args, $callback)
-# asynchronously sends a POST request and calls the callback with its response.
+# $om->post($page, $options)
+# asynchronously posts a request but does not wait for a response.
 # intended for internal use.
-sub async_post {
-    my ($om, $page, $args, $callback) = @_;
-    $args  = [@$args, id => $om->{id} ] if $om->{id};
-    my $id = $async->add(POST "http://$$om{server}/$page", $args);
-    $requests{$id} = [$callback, $om];
+sub post {
+    my ($om, $event, @opts) = (shift, shift, @{+shift || []});
+    $om->{async}->add(POST "http://$$om{server}/$event", [ id => $om->{id}, @opts ]);
+}
+
+# $om->get($page, $options)
+# asynchronously gets a request but does not wait for a response.
+# intended for internal use.
+sub get {
+    my ($om, $event, @opts) = (shift, shift, @{+shift || []});
+    $om->{async}->add(GET "http://$$om{server}/$event", [ id => $om->{id}, @opts ]);
+}
+
+# update()
+# update status, user count, and server list. intended for internal use.
+sub update {
+    my $data    = JSON::decode_json(_get('http://omegle.com/status'));
+    @servers    = @{$data->{servers}};
+    $lastserver = $#servers;
+    $online     = $data->{count};
+    $updated    = time;
 }
 
 # newserver()
-# returns the index of the next server in line to be used.
+# returns the index of the next server in line to be used
 sub newserver {
     $servers[$lastserver == $#servers ? $lastserver = 0 : ++$lastserver];
+}
+
+# _post(url)
+# returns the content of a POST request. intended for internal use.
+sub _post {
+    my $async = HTTP::Async->new;
+    $async->add(POST shift);
+    return $async->wait_for_next_response->content;
+}
+
+# _get(url)
+# returns the content of a GET request. intended for internal use.
+sub _get {
+    my $async = HTTP::Async->new;
+    $async->add(GET shift);
+    return $async->wait_for_next_response->content;
 }
 
 1

@@ -10,14 +10,13 @@ use HTTP::Async;
 use HTTP::Request::Common;
 use JSON;
 
-our ($VERSION, $async, $online, @servers, $updated,
-     $lastserver, %response) = (0.6, HTTP::Async->new, 0);
+our ($VERSION, $online, @servers, $updated, $lastserver, %response) = (2.7, 0);
 
 sub new {
     my ($class, %opts) = @_;
     $opts{async} = HTTP::Async->new;
     bless my $om = \%opts, $class;
-    return $om->update;
+    return $om;
 }
 
 sub start {
@@ -33,7 +32,7 @@ sub start {
     while (my $res = $om->{async}->wait_for_next_response) {
         next unless $res->content =~ m/^"(.+)"$/;
         $om->{id} = $1;
-        last
+        last;
     }
 
     $om->{stopsearching} = time() + 5 if $om->{use_likes};
@@ -76,13 +75,13 @@ sub handle_events {
     }
 }
 
-sub callback {
-    my ($om, $callback) = (shift, shift);
-    if (exists $om->{$callback}) {
-        my $call = $om->{$callback};
-        return $call->($om, @_)
+# fires callbacks. intended for internal use.
+sub fire {
+    my ($om, $callback, @args) = @_;
+    if ($om->{"on_$callback"}) {
+        return $om->{"on_$callback"}($om, @args);
     }
-    return
+    return;
 }
 
 sub handle_event {
@@ -91,58 +90,52 @@ sub handle_event {
 
         # session established
         when ('connected') {
-            $om->callback('on_connect');
+            $om->fire('connect');
             $om->{connected} = 1;
         }
 
         # stranger said something
         when ('gotMessage') {
-            $om->callback('on_chat', $event[1]);
-            $om->{typing} = 0;
+            $om->fire('chat', $event[1]);
+            delete $om->{typing};
         }
 
         # stranger disconnected
         when ('strangerDisconnected') {
-            $om->callback('on_disconnect');
+            $om->fire('disconnect');
             delete $om->{id};
-            $om->{connected} = 0;
+            delete $om->{connected};
         }
 
         # stranger is typing
         when ('typing') {
-            $om->callback('on_type') unless $om->{typing};
+            $om->fire('type') unless $om->{typing};
             $om->{typing} = 1;
         }
 
         # stranger stopped typing
         when ('stoppedTyping') {
-            $om->callback('on_stoptype') if $om->{typing};
-            $om->{typing} = 0;
+            $om->fire('stoptype') if $om->{typing};
+            delete $om->{typing};
         }
 
         # stranger has similar interests
         when ('commonLikes') {
-            $om->callback('on_commonlikes', $event[1]);
+            $om->fire('commonlikes', $event[1]);
         }
 
         # number of people online
         when ('count') {
             $online = $event[1];
-            $om->callback('on_count', $event[1]);
+            $om->fire('count', $event[1]);
         }
 
         # server requests captcha
         when (['recaptchaRequired', 'recaptchaRejected']) {
-            my $rand = rand;
-            my $name = $event[1];
-            my $id   = $om->{async}->add(GET "http://google.com/recaptcha/api/challenge?k=$name&ajax=1");
-            while (my ($res, $this_id) = $om->{async}->wait_for_next_response) {
-                next   unless $id == $this_id;
-                return unless $res->content =~ m/challenge : '(.+)'/;
-                $om->{challenge} = $1;
-                $om->callback('on_gotcaptcha', "http://www.google.com/recaptcha/api/image?c=$1");
-                last
-            }
+            my $data = _get("http://google.com/recaptcha/api/challenge?k=$event[1]&ajax=1");
+            return unless $data =~ m/challenge : '(.+)'/;
+            $om->{challenge} = $1;
+            $om->fire('gotcaptcha', "http://www.google.com/recaptcha/api/image?c=$1");
         }
     }
     return 1
@@ -157,7 +150,7 @@ sub go {
     # stop searching for common likes
     if (defined $om->{stopsearching} && $om->{stopsearching} >= time) {
         $om->post('stoplookingforcommonlikes');
-        $om->callback('on_stopsearching');
+        $om->fire('stopsearching');
         delete $om->{stopsearching};
     }
 
@@ -167,15 +160,16 @@ sub go {
         $om->handle_events($res->[0]->content, $res->[1]);
     }
 
+    # update server list and user count
+    update() if $updated && $updated + 300 < time;
+
     $om->request_next_event;
     $om->{last_time} = time;
 }
 
 # update status
 sub update {
-    my $om      = shift;
-    my $id      = $async->add(POST "http://omegle.com/status");
-    my $data    = JSON::decode_json($async->wait_for_next_response->content);
+    my $data    = JSON::decode_json(_get('http://omegle.com/status'));
     @servers    = @{$data->{servers}};
     $lastserver = $#servers;
     $online     = $data->{count};
@@ -218,7 +212,7 @@ sub disconnect {
     my $om = shift;
     return unless $om->{id};
     $om->post('disconnect');
-    $om->{connected} = 0;
+    delete $om->{connected};
     delete $om->{id};
 }
 
@@ -226,6 +220,12 @@ sub disconnect {
 sub post {
     my ($om, $event, @opts) = (shift, shift, @{+shift || []});
     $om->{async}->add(POST "http://$$om{server}/$event", [ id => $om->{id}, @opts ]);
+}
+
+sub _post {
+    my $async = HTTP::Async->new;
+    $async->add(POST "http://omegle.com/status");
+    return $async->wait_for_next_response->content;
 }
 
 1

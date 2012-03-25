@@ -16,6 +16,7 @@ our ($VERSION, $online, @servers, $updated, $lastserver, %response) = (2.7, 0);
 # creates a new New::Omegle session instance.
 sub new {
     my ($class, %opts) = @_;
+    update() if !$online;
     $opts{async} = HTTP::Async->new;
     bless my $om = \%opts, $class;
     return $om;

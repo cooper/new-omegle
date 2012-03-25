@@ -8,10 +8,12 @@ You are free to modify and redistribute New::Omegle under the terms of the New B
 
 ## variables
 
-New::Omegle has a two package variables for your use.
+New::Omegle has some package variables for your use.
 
 - __$New::Omegle::online__: the number of users on Omegle. it can be refreshed with the update() method of any New::Omegle instance.
 - __@New::Omegle::servers__: if dynamic server select is enabled, this is the list of available Omegle servers as fetched by update().
+- __$New::Omegle::lastserver__: the index of @servers of the last server used.
+- __$New::Omegle::updated__: the time of the last update of online user count and server list.
 
 ## methods
 
@@ -27,7 +29,8 @@ The New::Omegle instance is the first argument of all callbacks.
 - __on_type__: callback called when the stranger begins to type
 - __on_stoptype__: callback called when the stranger stops typing
 - __on_commonlikes__ (likes): callback called when common interests are found
-- __on_gotcaptcha__ (image URL): callback called when human verification is required
+- __on_wantcaptcha__: callback called when human verification is required
+- __on_gotcaptcha__ (image URL): callback called when captcha URL is resolved
 - __use_likes__: true if you wish to look for strangers similar to you
 - __topics__: array reference of your interests
 - __server__: specify a server (by default it alternates through all servers)
@@ -41,6 +44,7 @@ my $om = New::Omegle->new(
     on_disconnect  => \&disconnect_cb,
     on_connect     => \&connect_cb,
     on_commonlikes => \&commonlikes_cb,
+    on_wantcaptcha => \&gotcaptcha_cb,
     on_gotcaptcha  => \&gotcaptcha_cb,
     server         => 'bajor.omegle.com',  # don't use this option without reason
     topics         => ['IRC', 'Omegle', 'ponies'],

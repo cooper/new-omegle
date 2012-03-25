@@ -8,9 +8,11 @@ use 5.010;
 
 use HTTP::Async;
 use HTTP::Request::Common;
+use LWP::UserAgent;
 use JSON;
 
-our ($VERSION, $online, @servers, $updated, $lastserver, %response) = (2.7, 0);
+our ($VERSION, $online, $ua, @servers,
+     $updated, $lastserver, %response) = (2.8, 0, LWP::UserAgent->new);
 
 # New::Omegle->new(%opts)
 # creates a new New::Omegle session instance.
@@ -33,8 +35,7 @@ sub start {
     my $startopts = '?rcs=&spid=';
 
     # get ID
-    $om->{async}->add(POST "http://$$om{server}/start$startopts");
-    $om->{async}->wait_for_next_response->content =~ m/^"(.+)"$/;
+    _post("http://$$om{server}/start$startopts") =~ m/^"(.+)"$/;
     $om->{id} = $1;
 
     $om->{stopsearching} = time() + 5 if $om->{use_likes};
@@ -212,6 +213,7 @@ sub handle_event {
 
         # server requests captcha
         when (['recaptchaRequired', 'recaptchaRejected']) {
+            $om->fire('wantcaptcha');
             my $data = _get("http://google.com/recaptcha/api/challenge?k=$event[1]&ajax=1");
             return unless $data =~ m/challenge : '(.+)'/;
             $om->{challenge} = $1;
@@ -253,20 +255,10 @@ sub newserver {
     $servers[$lastserver == $#servers ? $lastserver = 0 : ++$lastserver];
 }
 
-# _post(url)
-# returns the content of a POST request. intended for internal use.
-sub _post {
-    my $async = HTTP::Async->new;
-    $async->add(POST shift);
-    return $async->wait_for_next_response->content;
-}
-
-# _get(url)
-# returns the content of a GET request. intended for internal use.
-sub _get {
-    my $async = HTTP::Async->new;
-    $async->add(GET shift);
-    return $async->wait_for_next_response->content;
-}
+# _post($url, $args)
+# _get ($url, $args)
+# returns the content of a request. intended for internal use.
+sub _post { $ua->post(shift, @{+shift || []})->content }
+sub _get  { $ua->get(shift, @{+shift || []})->content  }
 
 1

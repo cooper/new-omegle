@@ -26,6 +26,7 @@ be changed dynamically by changing the associated values.
 
 - __on_connect__: callback called when the stranger connects
 - __on_disconnect__: callback called when the stranger disconnects
+- __on_error__: callback called when an error occurs and the session ends
 - __on_chat__ (msg): callback called when the stranger sends a message
 - __on_type__: callback called when the stranger begins to type
 - __on_stoptype__: callback called when the stranger stops typing
@@ -46,6 +47,7 @@ be changed dynamically by changing the associated values.
 
 ```perl
 my $om = New::Omegle->new(
+    on_error         => \&error_cb,
     on_chat          => \&chat_cb,
     on_type          => \&type_cb,
     on_stoptype      => \&stoptype_cb,

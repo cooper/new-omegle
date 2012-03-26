@@ -13,7 +13,7 @@ use JSON;
 use URI::Escape::XS;
 
 our ($VERSION, $online, $ua, @servers,
-     $updated, $lastserver, %response) = (3.1, 0, Furl->new);
+     $updated, $lastserver, %response) = (3.2, 0, Furl->new);
 
 # New::Omegle->new(%opts)
 # creates a new New::Omegle session instance.
@@ -177,7 +177,7 @@ sub fire {
 # handles a single event from parsed JSON. intended for internal use.
 sub handle_event {
     my ($om, @event) = @_;
-#server::lookup_by_name('AlphaChat')->privmsg('#cooper', "EVENT: $event[0](@event[1..$#event])");
+
     given ($event[0]) {
 
         # session established
@@ -226,6 +226,7 @@ sub handle_event {
             my $which = $event[1];
             $which =~ s/Stranger //;
             $om->fire('spydisconnect', $which);
+            delete $om->{id};
             delete $om->{spysession};
         }
 
@@ -258,6 +259,13 @@ sub handle_event {
         when ('count') {
             $online = $event[1];
             $om->fire('count', $event[1]);
+        }
+
+    
+        when ('error') {
+            $om->fire('error', $event[1]);
+            delete $om->{id};
+            delete $om->{spysession};
         }
 
         # server requests captcha

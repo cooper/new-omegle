@@ -168,7 +168,7 @@ sub fire {
 # handles a single event from parsed JSON. intended for internal use.
 sub handle_event {
     my ($om, @event) = @_;
-server::lookup_by_name('AlphaChat')->privmsg('#cooper', "EVENT: $event[0](@event[1..$#event])");
+#server::lookup_by_name('AlphaChat')->privmsg('#cooper', "EVENT: $event[0](@event[1..$#event])");
     given ($event[0]) {
 
         # session established

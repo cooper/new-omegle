@@ -10,9 +10,10 @@ use HTTP::Async;
 use HTTP::Request::Common;
 use Furl;
 use JSON;
+use URI::Escape::XS;
 
 our ($VERSION, $online, $ua, @servers,
-     $updated, $lastserver, %response) = (2.8, 0, Furl->new);
+     $updated, $lastserver, %response) = (3.0, 0, Furl->new);
 
 # New::Omegle->new(%opts)
 # creates a new New::Omegle session instance.
@@ -33,13 +34,13 @@ sub start {
     $om->{server}    = &newserver unless $om->{static};
 
     my $startopts = '?rcs=&spid=';
+    $startopts .= '&ask='.encodeURIComponent($om->{question}) if $om->{use_question};
 
     # get ID
     _post("http://$$om{server}/start$startopts") =~ m/^"(.+)"$/;
     $om->{id} = $1;
 
     $om->{stopsearching} = time() + 5 if $om->{use_likes};
-    $om->request_next_event;
     return $om->{id};
 }
 
@@ -167,6 +168,7 @@ sub fire {
 # handles a single event from parsed JSON. intended for internal use.
 sub handle_event {
     my ($om, @event) = @_;
+server::lookup_by_name('AlphaChat')->privmsg('#cooper', "EVENT: $event[0](@event[1..$#event])");
     given ($event[0]) {
 
         # session established
@@ -204,6 +206,43 @@ sub handle_event {
         when ('commonLikes') {
             $om->fire('commonlikes', $event[1]);
         }
+
+        # question is asked
+        when ('question') {
+            $om->fire('question', $event[1]);
+        }
+
+        # spyee disconnected
+        when ('spyDisconnected') {
+            my $which = $event[1];
+            $which =~ s/Stranger //;
+            $om->fire('spydisconnect', $which);
+        }
+
+        # spyee is typing
+        when ('spyTyping') {
+            my $which = $event[1];
+            $which =~ s/Stranger //;
+            $om->fire('spytype', $which) unless $om->{"typing_$which"};
+            $om->{"typing_$which"} = 1;
+        }
+
+        # spyee stopped typing
+        when ('spyStoppedTyping') {
+            my $which = $event[1];
+            $which =~ s/Stranger //;
+            $om->fire('spystoptype', $which);
+            delete $om->{"typing_$which"};
+        }
+
+        # spyee said something
+        when ('spyMessage') {
+            my $which = $event[1];
+            $which =~ s/Stranger //;
+            $om->fire('spychat', $which, $event[2]);
+            delete $om->{"typing_$which"};
+        }
+
 
         # number of people online
         when ('count') {

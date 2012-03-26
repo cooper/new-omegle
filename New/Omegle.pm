@@ -13,7 +13,7 @@ use JSON;
 use URI::Escape::XS;
 
 our ($VERSION, $online, $ua, @servers,
-     $updated, $lastserver, %response) = (3.2, 0, Furl->new);
+     $updated, $lastserver, %response) = (3.3, 0, Furl->new);
 
 # New::Omegle->new(%opts)
 # creates a new New::Omegle session instance.
@@ -177,6 +177,7 @@ sub fire {
 # handles a single event from parsed JSON. intended for internal use.
 sub handle_event {
     my ($om, @event) = @_;
+    $om->fire('debug', $event[0].'('.join(', ', @event[1..$#event]).')');
 
     given ($event[0]) {
 
@@ -261,7 +262,7 @@ sub handle_event {
             $om->fire('count', $event[1]);
         }
 
-    
+        # an error has occured and the session must end
         when ('error') {
             $om->fire('error', $event[1]);
             delete $om->{id};

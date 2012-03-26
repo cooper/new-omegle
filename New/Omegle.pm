@@ -13,7 +13,7 @@ use JSON;
 use URI::Escape::XS;
 
 our ($VERSION, $online, $ua, @servers,
-     $updated, $lastserver, %response) = (3.0, 0, Furl->new);
+     $updated, $lastserver, %response) = (3.1, 0, Furl->new);
 
 # New::Omegle->new(%opts)
 # creates a new New::Omegle session instance.
@@ -34,7 +34,12 @@ sub start {
     $om->{server}    = &newserver unless $om->{static};
 
     my $startopts = '?rcs=&spid=';
-    $startopts .= '&ask='.encodeURIComponent($om->{question}) if $om->{use_question};
+
+    # enable question mode
+    if ($om->{use_question}) {
+        $om->{spysession} = 1;
+        $startopts .= '&ask='.encodeURIComponent($om->{question});
+    }
 
     # get ID
     _post("http://$$om{server}/start$startopts") =~ m/^"(.+)"$/;
@@ -48,6 +53,7 @@ sub start {
 # send a message
 sub say {
     my ($om, $msg) = @_;
+    return if $om->{spysession};
     return unless $om->{id};
     $om->post('send', [ msg => $msg ]);
 }
@@ -56,6 +62,7 @@ sub say {
 # make it appear that you are typing
 sub type {
     my $om = shift;
+    return if $om->{spysession};
     return unless $om->{id};
     $om->post('typing');
 }
@@ -64,6 +71,7 @@ sub type {
 # make it appear that you have stopped typing
 sub stoptype {
     my $om = shift;
+    return if $om->{spysession};
     return unless $om->{id};
     $om->post('stoptyping');
 }
@@ -76,6 +84,7 @@ sub disconnect {
     $om->post('disconnect');
     delete $om->{connected};
     delete $om->{id};
+    delete $om->{spysession};
 }
 
 # $om->submit_captcha($solution)
@@ -217,6 +226,7 @@ sub handle_event {
             my $which = $event[1];
             $which =~ s/Stranger //;
             $om->fire('spydisconnect', $which);
+            delete $om->{spysession};
         }
 
         # spyee is typing

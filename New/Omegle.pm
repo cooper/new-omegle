@@ -32,10 +32,9 @@ our ($VERSION, $online, $ua, @servers,
 # creates a new New::Omegle session instance.
 sub new {
     my ($class, %opts) = @_;
-    update() if !$online;
     $opts{async} = HTTP::Async->new;
-    bless my $om = \%opts, $class;
-    return $om;
+    update() if !$updated;
+    bless \%opts, $class;
 }
 
 # $om->start()

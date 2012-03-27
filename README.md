@@ -1,9 +1,11 @@
 # New::Omegle
 
-This is a Perl interface to Omegle.com. It supports all Omegle events, allowing your program to respond to messages, typing, stopped typing, connects, and disconnects.
-Using HTTP::Async, it is completely non-blocking and can be placed anywhere in your program. Recently, support has been added for using Omegle's reCAPTCHA API.
+This is a Perl interface to Omegle.com. It supports all Omegle events, allowing your program to respond to messages, typing, stopped typing, connects, disconnects, and more. Using HTTP::Async, it is completely non-blocking and can be placed anywhere in your program. Recently, support has been added for using Omegle's reCAPTCHA API and many other new features such as the common interests system, spying sessions, and question mode.
 
-## license
+## author
+
+Mitchell Cooper <mitchell@notroll.net>  
+Feel free to contact me via github's messaging system if you have a question or request.  
 You are free to modify and redistribute New::Omegle under the terms of the New BSD license. See LICENSE.
 
 ## variables
@@ -20,6 +22,7 @@ New::Omegle has some package variables for your use.
 You should _definitely_ look at the example for an easy demonstration.
 
 ### $om = New::Omegle->new(%options)
+
 Creates an Omegle session object. All options are optional. Callbacks must be CODE references.
 The New::Omegle instance is the first argument of all callbacks. Most of these options can
 be changed dynamically by changing the associated values.
@@ -40,12 +43,14 @@ be changed dynamically by changing the associated values.
 - __on_gotcaptcha__ (image URL): callback called when captcha URL is resolved
 - __use_likes__: true if you wish to look for strangers similar to you
 - __use_question__: true if you wish to enable spy mode and ask a question
+- __want_question__: true if you wish to enable spy mode and be asked a question
 - __topics__: array reference of your interests (if use_likes enabled)
 - __question__: a question for two strangers to discuss (if use_question enabled)
 - __server__: specify a server (by default it alternates through all servers)
 - __static__: if true, do not cycle through server list
 
 ```perl
+
 my $om = New::Omegle->new(
     on_error         => \&error_cb,
     on_chat          => \&chat_cb,
@@ -66,70 +71,95 @@ my $om = New::Omegle->new(
     use_likes        => 1,
     use_question     => 1
 );
+
 ```
 
 ### $om->start()
+
 Connects to Omegle and returns your session's ID. start() also sets the "id" key of the object.
 
 ```perl
+
 my $id = $om->start();
+
 ```
 
 ### $om->go()
+
 Perhaps the most important method - checks for new events, handles pending events, etc. You probably want to put this in the "main loop" of your program.
-Returns the last HTTP::Async object or `undef` if there is no session connected.
+Returns true (`1`) if the session is established or `undef` if there is no session connected.
 
 ```perl
+
 while (1) {
     $om->go();
     sleep 1
 }
+
 ```
 
 ### $om->type()
+
 Makes it appear that you are typing.
 Returns the last HTTP::Async object or `undef` if there is no session connected.
 
 ```perl
+
 $om->type();
+
 ```
 
 ### $om->stoptype()
+
 Makes it appear that you have stopped typing.
 Returns the last HTTP::Async object or `undef` if there is no session connected.
 
 ```perl
+
 $om->stoptype();
+
 ```
 
 ### $om->say($message)
+
 Sends a message to the stranger.
 Returns the last pending HTTP::Async object or `undef` if there is no session connected.
 
 ```perl
+
 $om->say('heybby :]');
+
 ```
 
 ### $om->disconnect()
+
 Disconnects from the current session.
 Returns the last pending HTTP::Async object or `undef` if there is no session connected.
 You can immediately start a new session on the same object with `$om->start()`.
 
 ```perl
+
 $om->disconnect();
+
 ```
 
 ### $om->submit_captcha($answer)
+
 Submits a response to recaptcha. If incorrect, a new captcha will be presented.
 
 ```perl
+
 $om->submit_captcha('some CAPTCHA');
+
 ```
 
 ### $om->update()
+
 Updates the Omegle server list and online user count. You typically don't need to use
 this directly.
 
 ```perl
+
 $om->update();
+
 ```

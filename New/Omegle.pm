@@ -1,6 +1,19 @@
-#!/usr/bin/perl
+########################################
+  package     New::Omegle              #
+# ------------------------------------ #
+# A clean, non-blocking Perl interface #
+# to Omegle.com.                       #
+# http://github.com/cooper/new-omegle  #
+########################################
+;
 # Copyright (c) 2011-2012, Mitchell Cooper
-package New::Omegle;
+#
+# session modes:
+#    undef: no session
+#    0: traditional
+#    1: traditional + common likes submitted
+#    2: spy mode (you're the spy)
+#    3: spy mode (you're spied on)
 
 use warnings;
 use strict;
@@ -8,12 +21,12 @@ use 5.010;
 
 use HTTP::Async;
 use HTTP::Request::Common;
+use URI::Escape::XS;
 use Furl;
 use JSON;
-use URI::Escape::XS;
 
 our ($VERSION, $online, $ua, @servers,
-     $updated, $lastserver, %response) = (3.3, 0, Furl->new);
+     $updated, $lastserver, %response) = (3.4, 0, Furl->new);
 
 # New::Omegle->new(%opts)
 # creates a new New::Omegle session instance.
@@ -32,20 +45,32 @@ sub start {
     $om->{last_time} = time;
     $om->{async}   ||= HTTP::Async->new;
     $om->{server}    = &newserver unless $om->{static};
+    $om->{session}   = 0;
+    my $startopts    = '?rcs=1&spid=';
 
-    my $startopts = '?rcs=&spid=';
+    # enable common interests
+    if ($om->{use_likes}) {
+        $startopts .= '&topics='.encodeURIComponent($om->{topics});
+        $om->{stopsearching} = time() + 5;
+        $om->{session} = 1;
+    }
 
     # enable question mode
     if ($om->{use_question}) {
-        $om->{spysession} = 1;
         $startopts .= '&ask='.encodeURIComponent($om->{question});
+        $om->{session} = 2;
+    }
+
+    # enable answer mode
+    if ($om->{want_question}) {
+        $startopts .= '&wantsspy=1';
+        $om->{session} = 3;
     }
 
     # get ID
     _post("http://$$om{server}/start$startopts") =~ m/^"(.+)"$/;
     $om->{id} = $1;
 
-    $om->{stopsearching} = time() + 5 if $om->{use_likes};
     return $om->{id};
 }
 
@@ -53,8 +78,8 @@ sub start {
 # send a message
 sub say {
     my ($om, $msg) = @_;
-    return if $om->{spysession};
     return unless $om->{id};
+    return if $om->{session} == 2;
     $om->post('send', [ msg => $msg ]);
 }
 
@@ -62,8 +87,8 @@ sub say {
 # make it appear that you are typing
 sub type {
     my $om = shift;
-    return if $om->{spysession};
     return unless $om->{id};
+    return if $om->{session} == 2;
     $om->post('typing');
 }
 
@@ -71,8 +96,8 @@ sub type {
 # make it appear that you have stopped typing
 sub stoptype {
     my $om = shift;
-    return if $om->{spysession};
     return unless $om->{id};
+    return if $om->{session} == 2;
     $om->post('stoptyping');
 }
 
@@ -84,7 +109,7 @@ sub disconnect {
     $om->post('disconnect');
     delete $om->{connected};
     delete $om->{id};
-    delete $om->{spysession};
+    delete $om->{session};
 }
 
 # $om->submit_captcha($solution)
@@ -102,7 +127,7 @@ sub submit_captcha {
 sub go {
     my $om = shift;
     return unless $om->{id};
-    return if (($om->{last_time} + 2) > time);
+    return if $om->{last_time} >= time;
 
     # stop searching for common likes
     if (defined $om->{stopsearching} && $om->{stopsearching} >= time) {
@@ -196,8 +221,7 @@ sub handle_event {
         # stranger disconnected
         when ('strangerDisconnected') {
             $om->fire('disconnect');
-            delete $om->{id};
-            delete $om->{connected};
+            $om->done();
         }
 
         # stranger is typing
@@ -227,8 +251,7 @@ sub handle_event {
             my $which = $event[1];
             $which =~ s/Stranger //;
             $om->fire('spydisconnect', $which);
-            delete $om->{id};
-            delete $om->{spysession};
+            $om->done();
         }
 
         # spyee is typing
@@ -265,8 +288,7 @@ sub handle_event {
         # an error has occured and the session must end
         when ('error') {
             $om->fire('error', $event[1]);
-            delete $om->{id};
-            delete $om->{spysession};
+            $om->done();
         }
 
         # server requests captcha
@@ -279,6 +301,14 @@ sub handle_event {
         }
     }
     return 1
+}
+
+# $om->done()
+# clean up an ended sesion. intended for internal use.
+sub done {
+    my $om = shift;
+    delete $om->{$_} foreach qw(id session typing typing_1 typing_2);
+    return 1;
 }
 
 # $om->post($page, $options)

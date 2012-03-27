@@ -50,7 +50,6 @@ be changed dynamically by changing the associated values.
 - __static__: if true, do not cycle through server list
 
 ```perl
-
 my $om = New::Omegle->new(
     on_error         => \&error_cb,
     on_chat          => \&chat_cb,
@@ -71,7 +70,6 @@ my $om = New::Omegle->new(
     use_likes        => 1,
     use_question     => 1
 );
-
 ```
 
 ### $om->start()
@@ -79,9 +77,7 @@ my $om = New::Omegle->new(
 Connects to Omegle and returns your session's ID. start() also sets the "id" key of the object.
 
 ```perl
-
 my $id = $om->start();
-
 ```
 
 ### $om->go()
@@ -90,12 +86,10 @@ Perhaps the most important method - checks for new events, handles pending event
 Returns true (`1`) if the session is established or `undef` if there is no session connected.
 
 ```perl
-
 while (1) {
     $om->go();
     sleep 1
 }
-
 ```
 
 ### $om->type()
@@ -104,9 +98,7 @@ Makes it appear that you are typing.
 Returns the last HTTP::Async object or `undef` if there is no session connected.
 
 ```perl
-
 $om->type();
-
 ```
 
 ### $om->stoptype()
@@ -115,9 +107,7 @@ Makes it appear that you have stopped typing.
 Returns the last HTTP::Async object or `undef` if there is no session connected.
 
 ```perl
-
 $om->stoptype();
-
 ```
 
 ### $om->say($message)
@@ -126,9 +116,7 @@ Sends a message to the stranger.
 Returns the last pending HTTP::Async object or `undef` if there is no session connected.
 
 ```perl
-
 $om->say('heybby :]');
-
 ```
 
 ### $om->disconnect()
@@ -138,9 +126,7 @@ Returns the last pending HTTP::Async object or `undef` if there is no session co
 You can immediately start a new session on the same object with `$om->start()`.
 
 ```perl
-
 $om->disconnect();
-
 ```
 
 ### $om->submit_captcha($answer)
@@ -148,9 +134,7 @@ $om->disconnect();
 Submits a response to recaptcha. If incorrect, a new captcha will be presented.
 
 ```perl
-
 $om->submit_captcha('some CAPTCHA');
-
 ```
 
 ### $om->update()
@@ -159,7 +143,5 @@ Updates the Omegle server list and online user count. You typically don't need t
 this directly.
 
 ```perl
-
 $om->update();
-
 ```

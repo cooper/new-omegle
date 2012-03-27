@@ -26,7 +26,7 @@ use Furl;
 use JSON;
 
 our ($VERSION, $online, $ua, @servers,
-     $updated, $lastserver, %response) = (3.4, 0, Furl->new);
+     $updated, $lastserver, %response) = (3.5, 0, Furl->new);
 
 # New::Omegle->new(%opts)
 # creates a new New::Omegle session instance.
@@ -107,9 +107,7 @@ sub disconnect {
     my $om = shift;
     return unless $om->{id};
     $om->post('disconnect');
-    delete $om->{connected};
-    delete $om->{id};
-    delete $om->{session};
+    $om->done();
 }
 
 # $om->submit_captcha($solution)
@@ -307,7 +305,7 @@ sub handle_event {
 # clean up an ended sesion. intended for internal use.
 sub done {
     my $om = shift;
-    delete $om->{$_} foreach qw(id session typing typing_1 typing_2);
+    delete $om->{$_} foreach qw(id connected session typing typing_1 typing_2);
     return 1;
 }
 

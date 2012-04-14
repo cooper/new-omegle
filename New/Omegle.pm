@@ -26,7 +26,7 @@ use Furl;
 use JSON;
 
 our ($VERSION, $online, $ua, @servers,
-     $updated, $lastserver, %response) = (3.5, 0, Furl->new);
+     $updated, $lastserver, %response) = (3.6, 0, Furl->new);
 
 # New::Omegle->new(%opts)
 # creates a new New::Omegle session instance.
@@ -286,6 +286,12 @@ sub handle_event {
         when ('error') {
             $om->fire('error', $event[1]);
             $om->done();
+        }
+
+        # captcha was rejected
+        when ('recaptchaRejected') {
+            $om->fire('badcaptcha');
+            continue;
         }
 
         # server requests captcha

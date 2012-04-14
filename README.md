@@ -41,6 +41,7 @@ be changed dynamically by changing the associated values.
 - __on_spychat__ (stranger, message): callback called when a spyee sends a message
 - __on_wantcaptcha__: callback called when human verification is required
 - __on_gotcaptcha__ (image URL): callback called when captcha URL is resolved
+- __on_badcaptcha__: callback called when a submitted captcha is incorrect
 - __use_likes__: true if you wish to look for strangers similar to you
 - __use_question__: true if you wish to enable spy mode and ask a question
 - __want_question__: true if you wish to enable spy mode and be asked a question
@@ -65,6 +66,7 @@ my $om = New::Omegle->new(
     on_spychat       => \&spychat_cb,
     on_wantcaptcha   => \&gotcaptcha_cb,
     on_gotcaptcha    => \&gotcaptcha_cb,
+    on_badcaptcha    => \&badcaptcha_cb,
     server           => 'bajor.omegle.com',  # don't use this option without reason
     topics           => ['IRC', 'Omegle', 'ponies'],
     use_likes        => 1,

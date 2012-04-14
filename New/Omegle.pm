@@ -26,7 +26,7 @@ use Furl;
 use JSON;
 
 our ($VERSION, $online, $ua, @servers,
-     $updated, $lastserver, %response) = (3.6, 0, Furl->new);
+     $updated, $lastserver, %response) = (3.7, 0, Furl->new);
 
 # New::Omegle->new(%opts)
 # creates a new New::Omegle session instance.
@@ -223,12 +223,14 @@ sub handle_event {
 
         # stranger is typing
         when ('typing') {
+            continue if $om->{no_type};
             $om->fire('type') unless $om->{typing};
             $om->{typing} = 1;
         }
 
         # stranger stopped typing
         when ('stoppedTyping') {
+            continue if $om->{no_type};
             $om->fire('stoptype') if $om->{typing};
             delete $om->{typing};
         }
@@ -253,6 +255,7 @@ sub handle_event {
 
         # spyee is typing
         when ('spyTyping') {
+            continue if $om->{no_type};
             my $which = $event[1];
             $which =~ s/Stranger //;
             $om->fire('spytype', $which) unless $om->{"typing_$which"};
@@ -261,6 +264,7 @@ sub handle_event {
 
         # spyee stopped typing
         when ('spyStoppedTyping') {
+            continue if $om->{no_type};
             my $which = $event[1];
             $which =~ s/Stranger //;
             $om->fire('spystoptype', $which);

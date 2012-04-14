@@ -49,6 +49,7 @@ be changed dynamically by changing the associated values.
 - __question__: a question for two strangers to discuss (if use_question enabled)
 - __server__: specify a server (by default it alternates through all servers)
 - __static__: if true, do not cycle through server list
+- __no_type__: true if you think typing events are annoying and useless
 
 ```perl
 my $om = New::Omegle->new(
@@ -70,7 +71,8 @@ my $om = New::Omegle->new(
     server           => 'bajor.omegle.com',  # don't use this option without reason
     topics           => ['IRC', 'Omegle', 'ponies'],
     use_likes        => 1,
-    use_question     => 1
+    use_question     => 1,
+    no_type          => 1
 );
 ```
 
@@ -85,7 +87,8 @@ my $id = $om->start();
 ### $om->go()
 
 Perhaps the most important method - checks for new events, handles pending events, etc. You probably want to put this in the "main loop" of your program.
-Returns true (`1`) if the session is established or `undef` if there is no session connected.
+Returns true (`1`) if the session is established or `undef` if there is no session connected. No matter how many times this is called, New::Omegle will
+only make HTTP requests in one-second intervals, so you don't have to worry about the frequency of your loop.
 
 ```perl
 while (1) {
